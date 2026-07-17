@@ -469,25 +469,65 @@ function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a
 let WORDS=[],WORDSET=new Set(),KILLERS=new Set(),INDEX={},COUNT={},RANK=new Map(),DICT_READY=false;
 function familiarity(w){let m=Infinity;for(const ch of w){const c=COUNT[ch]||0;if(c<m)m=c}return m}
 function countFor(ch){let c=0;for(const a of allowedStarts(ch))c+=COUNT[a]||0;return c}
-function initDict(list,killers){
-  WORDS=list;WORDSET=new Set(list);INDEX={};COUNT={};
+function buildIndex(){
+  INDEX={};COUNT={};
   for(const w of WORDS)(INDEX[w[0]]??=[]).push(w);
   for(const k in INDEX)COUNT[k]=INDEX[k].length;
+}
+/* ranked=true → 이미 친숙도 순으로 정렬된 사전 (빌드 시 처리됨, 폰에서 정렬 안 함) */
+function initDict(list,killers,ranked){
+  WORDS=list;WORDSET=new Set(list);
+  buildIndex();
+  if(!ranked){ /* 구형식·표본 사전만: 여기서 정렬 (느림) */
+    const scored=WORDS.map(w=>[w,familiarity(w)-w.length*2]);
+    scored.sort((a,b)=>b[1]-a[1]);
+    WORDS=scored.map(x=>x[0]);
+    buildIndex();
+  }
+  RANK=new Map();for(let i=0;i<WORDS.length;i++)RANK.set(WORDS[i],i);
   KILLERS=killers&&killers.length?new Set(killers):(()=>{const s=new Set();for(const w of WORDS)if(countFor(w.at(-1))===0)s.add(w);return s})();
-  const scored=WORDS.map(w=>[w,familiarity(w)-w.length*2]);
-  scored.sort((a,b)=>b[1]-a[1]);
-  RANK=new Map();for(let i=0;i<scored.length;i++)RANK.set(scored[i][0],i);
+}
+/* words.txt (v2) 파서: KKUT1 / #K n / 한방단어… / #W n / 랭크순 단어… */
+function parseKKUT(t){
+  const L=t.replace(/\r/g,'').split('\n');
+  if(L[0]!=='KKUT1')throw new Error('unknown dict format');
+  const kn=+L[1].split(' ')[1];
+  const killers=L.slice(2,2+kn);
+  const wn=+L[2+kn].split(' ')[1];
+  const words=L.slice(3+kn,3+kn+wn);
+  if(!words.length)throw new Error('empty dict');
+  return {words,killers};
 }
 async function loadDict(){
   const btn=document.getElementById('startBtn'),badge=document.getElementById('dictBadge');
+  const t0=performance.now();
   try{
-    let j=null,via='';
-    if(window.WORDS_DATA&&Array.isArray(window.WORDS_DATA.words)){j=window.WORDS_DATA;via='words.js'}
-    else{const res=await fetch('words.json');if(!res.ok)throw 0;j=await res.json();via='words.json'}
-    initDict(j.words,j.killers);
-    badge.textContent=`📖 표준 사전 ${WORDS.length.toLocaleString()}단어 · 한방단어 ${KILLERS.size.toLocaleString()}개 (${via})`;
+    let via='';
+    if(window.WORDS_DATA&&Array.isArray(window.WORDS_DATA.words)){   /* 로컬 file:// 테스트 */
+      const d=window.WORDS_DATA;
+      initDict(d.words,d.killers,d.v>=2);via='words.js';
+    }else{
+      badge.textContent='📖 사전 내려받는 중…';
+      let res=await fetch('words.txt');
+      if(res.ok){                                                    /* v2: 사전 정렬 텍스트 */
+        const t=await res.text();
+        badge.textContent='📖 사전 준비 중…';
+        await new Promise(r=>setTimeout(r,0));                       /* 안내 문구를 먼저 그림 */
+        const d=parseKKUT(t);
+        initDict(d.words,d.killers,true);via='words.txt';
+      }else{                                                         /* 구형식 폴백 */
+        res=await fetch('words.json');
+        if(!res.ok)throw 0;
+        const j=await res.json();
+        badge.textContent='📖 사전 준비 중…';
+        await new Promise(r=>setTimeout(r,0));
+        initDict(j.words,j.killers,j.v>=2);via='words.json';
+      }
+    }
+    const sec=((performance.now()-t0)/1000).toFixed(1);
+    badge.textContent=`📖 표준 사전 ${WORDS.length.toLocaleString()}단어 · 한방단어 ${KILLERS.size.toLocaleString()}개 (${via} · ${sec}초)`;
   }catch(e){
-    initDict(FALLBACK,null);
+    initDict(FALLBACK,null,false);
     badge.textContent='⚠️ 사전 파일 없음 — 표본 사전으로 실행 중';
   }
   DICT_READY=true;btn.disabled=false;btn.textContent='배우면서 이기기!';

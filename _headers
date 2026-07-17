@@ -1,4 +1,6 @@
-/words.json
+/words.txt
   Cache-Control: public, max-age=604800
 /words.js
+  Cache-Control: public, max-age=604800
+/words.json
   Cache-Control: public, max-age=604800
