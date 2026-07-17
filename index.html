@@ -147,10 +147,20 @@ a{color:inherit}
   #dex.show .dexchip{animation:chipflip .35s cubic-bezier(.2,.8,.3,1.1) both;animation-delay:calc(var(--i,0)*18ms)}
 }
 
-.playzone{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 26%);padding:10px 0 16px}
+.playzone{position:sticky;bottom:0;background:linear-gradient(transparent,var(--bg) 26%);padding:8px 0 12px}
+/* 키보드가 올라와도 항상 보이는 핵심 상태줄 */
+.statusline{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.hearts-mini{font-size:13px;letter-spacing:1px;flex:none}
+.statusline .timerbar{flex:1;height:10px}
+.tsec{font-size:11px;font-weight:900;color:var(--dim);flex:none;min-width:36px;text-align:right}
 .mustline{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .mustchip{background:var(--sun);color:#5C4300;border-radius:18px;padding:7px 15px;display:flex;align-items:baseline;gap:6px;box-shadow:0 4px 0 var(--sun-d)}
-.mustchip .c{font-family:'Jua',sans-serif;font-size:25px;line-height:1}
+.mustchip{flex:1;min-width:0;justify-content:center}
+.mustchip .lw{font-family:'Jua',sans-serif;font-size:16px;color:rgba(92,67,0,.62);
+  max-width:35vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:none}
+.mustchip .lw b{color:var(--ink);font-weight:400}
+.mustchip .ar{font-size:12px;font-weight:900;opacity:.5;flex:none}
+.mustchip .c{font-family:'Jua',sans-serif;font-size:25px;line-height:1;flex:none}
 .mustchip .l{font-size:11px;font-weight:900}
 @media (prefers-reduced-motion:no-preference){
   .mustchip.pop{animation:chipdrop .35s cubic-bezier(.2,.9,.3,1.4)}
@@ -284,6 +294,12 @@ a{color:inherit}
   opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:180;max-width:88vw;text-align:center;
 }
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (max-width:420px){
+  .btn-hint,.btn-kchance{padding:9px 10px;font-size:12px}
+  .mustchip{padding:7px 12px}
+  .mustchip .l{display:none}          /* 좁으면 "(으)로 시작!" 라벨 생략 */
+  .mustchip .lw{max-width:28vw}
+}
 footer{text-align:center;color:var(--dim);font-size:11px;padding:10px 0 18px}
 </style>
 </head>
@@ -327,16 +343,19 @@ footer{text-align:center;color:var(--dim);font-size:11px;padding:10px 0 18px}
       </div>
     </div>
 
-    <div class="timerwrap">
-      <div class="timerbar"><div class="fill" id="timerFill"></div></div>
-      <div class="timerlabel"><span id="timerText">15.0</span>초 남음</div>
-    </div>
-
     <div class="log" id="log" aria-live="polite"></div>
 
     <div class="playzone">
+      <div class="statusline">
+        <span class="hearts-mini" id="heartsMini">❤️❤️❤️</span>
+        <div class="timerbar"><div class="fill" id="timerFill"></div></div>
+        <span class="tsec"><span id="timerText">15.0</span>s</span>
+      </div>
       <div class="mustline">
-        <div class="mustchip" id="mustChip"><span class="c" id="mustChar">—</span><span class="l">(으)로 시작!</span></div>
+        <div class="mustchip" id="mustChip">
+          <span class="lw" id="lastWord">—</span><span class="ar">▶</span>
+          <span class="c" id="mustChar">—</span><span class="l">(으)로 시작!</span>
+        </div>
         <span class="hintword" id="hintWord" role="button" tabindex="0" title="탭하면 입력돼요"></span>
         <button class="btn-kchance" id="kchanceBtn">⚡ 한방 찬스 <span id="kchanceCount">1</span></button>
         <button class="btn-hint" id="hintBtn">💡 힌트 <span id="hintCount">2</span></button>
@@ -546,9 +565,13 @@ function addMsg(who,word,say){
   requestAnimationFrame(()=>{log.scrollTop=0});
   return el;
 }
-function renderHearts(){$('heartsUi').textContent='❤️'.repeat(hearts)+'🤍'.repeat(HEARTS-hearts)}
-function setMust(ch){
+function renderHearts(){
+  const t='❤️'.repeat(hearts)+'🤍'.repeat(HEARTS-hearts);
+  $('heartsUi').textContent=t;$('heartsMini').textContent=t;
+}
+function setMust(ch,word){
   $('mustChar').textContent=[...allowedStarts(ch)].join('/');
+  if(word)$('lastWord').innerHTML=word.slice(0,-1)+'<b>'+word.at(-1)+'</b>';
   const chip=$('mustChip');chip.classList.remove('pop');void chip.offsetWidth;chip.classList.add('pop');
 }
 let toastTimer;
@@ -654,7 +677,7 @@ function dobalTurn(isFirst=false,freshWord=false){
     used.add(word);lastChar=word.at(-1);
     const streakNow=store.get('kkut_streak',0);
     addMsg('dobal',word,isFirst?pick(SAY.open):(freshWord?pick(SAY.heartLost):pick(rng()<.4?SAY.turn:SAY.praise)));
-    setMust(lastChar);
+    setMust(lastChar,word);
     history.push({turn:turnCount+1,ch:lastChar}); /* 놓친 승리 분석용 */
     accepting=true;input.disabled=false;$('sendBtn').disabled=false;
     input.value='';input.focus();startTimer();
