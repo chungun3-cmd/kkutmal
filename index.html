@@ -53,13 +53,18 @@ body{
 button{font-family:inherit;cursor:pointer;border:none}
 a{color:inherit}
 :focus-visible{outline:3px solid var(--sky);outline-offset:2px}
-.app{max-width:520px;margin:0 auto;height:100%;display:flex;flex-direction:column;padding:0 16px}
+.app{position:fixed;top:0;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;
+  display:flex;flex-direction:column;padding:0 16px;overflow-x:hidden}
+.app.playing footer{display:none} /* 게임 중엔 푸터를 숨겨 대화 영역 확보 */
 .screen{flex:1;display:flex;flex-direction:column}
 
 /* ============ 시작 화면 ============ */
-#startScreen{justify-content:center;gap:15px;padding:24px 0 40px;text-align:center;overflow-y:auto}
+#startScreen{justify-content:center;gap:13px;padding:18px 0 24px;text-align:center;
+  overflow-y:auto;overflow-x:hidden;scrollbar-width:none;-ms-overflow-style:none}
+#startScreen::-webkit-scrollbar{width:0;height:0} /* 스크롤바 숨김 — 스크롤은 그대로 동작 */
+.adwrap{margin-top:4px;max-width:100%;overflow:hidden} /* 광고가 가로로 삐져나가지 않게 */
 .mascot-stage{perspective:700px;margin:0 auto}
-.mascot{width:132px;height:132px;margin:0 auto;transform-style:preserve-3d;will-change:transform;transition:transform .15s ease-out}
+.mascot{width:118px;height:118px;margin:0 auto;transform-style:preserve-3d;will-change:transform;transition:transform .15s ease-out}
 .pupil{transition:transform .1s ease-out}
 @media (prefers-reduced-motion:no-preference){
   .mascot svg{animation:float 3s ease-in-out infinite}
@@ -332,8 +337,8 @@ footer{text-align:center;color:var(--dim);font-size:11px;padding:10px 0 18px}
       <button class="btn-tuto" id="tutoBtn">❓ 게임 방법 · 한방단어가 뭐예요?</button>
       <button class="btn-snd" id="sndBtn1" aria-label="소리 켜기/끄기">🔊</button>
     </div>
-    <div style="margin-top:6px"><!-- ▼ [출시설정 2/4] 광고 단위: 슬롯 ID 교체 -->
-    <ins class="adsbygoogle" style="display:block;min-height:90px" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="0000000000" data-ad-format="auto" data-full-width-responsive="true"></ins>
+    <div class="adwrap"><!-- ▼ [출시설정 2/4] 광고 단위: 슬롯 ID 교체 -->
+    <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="0000000000" data-ad-format="auto" data-full-width-responsive="true"></ins>
     <script>(adsbygoogle=window.adsbygoogle||[]).push({});</script></div>
   </section>
 
@@ -751,6 +756,7 @@ function startGame(gameMode='free'){
   $('kchanceCount').textContent=kchance;$('kchanceBtn').disabled=false;hideHint();
   input.value='';input.placeholder='단어를 입력하세요';
   $('turnNum').textContent='0';fill.style.transform='scaleX(1)';fill.classList.remove('danger');$('timerText').textContent=TURN_TIME.toFixed(1);
+  document.querySelector('.app').classList.add('playing');
   $('startScreen').style.display='none';
   $('gameScreen').style.display='flex';
   track('game_start',{mode});
@@ -981,6 +987,7 @@ $('shareBtn').addEventListener('click',shareResult);
 $('retryBtn').addEventListener('click',()=>{$('overlay').classList.remove('show');startGame(mode)});
 $('homeBtn').addEventListener('click',()=>{
   $('overlay').classList.remove('show');
+  document.querySelector('.app').classList.remove('playing');
   $('gameScreen').style.display='none';
   $('startScreen').style.display='flex';
   renderStats();
@@ -1047,9 +1054,9 @@ $('dex').addEventListener('click',e=>{if(e.target.id==='dex')$('dex').classList.
   const vv=window.visualViewport;if(!vv)return;
   const app=document.querySelector('.app');
   function fit(){
-    /* 키보드가 밀어올린 만큼(offsetTop) 앱을 함께 내려 입력창이 잘리지 않게 */
-    app.style.height=vv.height+'px';
-    app.style.transform=`translateY(${vv.offsetTop}px)`;
+    /* 키보드가 가린 만큼 앱 높이를 줄이고, 밀어올린 만큼(offsetTop) 내려줌 */
+    app.style.height=Math.round(vv.height)+'px';
+    app.style.top=Math.round(vv.offsetTop)+'px';
     log.scrollTop=log.scrollHeight; /* 항상 최신 단어 유지 */
   }
   vv.addEventListener('resize',fit);
