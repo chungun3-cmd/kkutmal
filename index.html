@@ -90,6 +90,10 @@ a{color:inherit}
 }
 .btn-big:active{transform:translateY(5px);box-shadow:0 2px 0 var(--coral-d)}
 .btn-tuto{background:none;color:var(--dim);font-weight:700;font-size:12.5px;text-decoration:underline;padding:4px}
+.btn-snd{background:var(--card);border-radius:50%;box-shadow:var(--shadow);width:34px;height:34px;
+  font-size:15px;line-height:1;display:grid;place-items:center;flex:none}
+.tutorow{display:flex;gap:8px;justify-content:center;align-items:center}
+.statusline .btn-snd{width:26px;height:26px;font-size:12px;box-shadow:0 2px 6px rgba(70,100,150,.18)}
 
 /* ============ 대전 화면 ============ */
 #gameScreen{display:none}
@@ -324,7 +328,10 @@ footer{text-align:center;color:var(--dim);font-size:11px;padding:10px 0 18px}
     <button class="btn-big" id="startBtn" disabled>사전 불러오는 중…</button>
     <button class="btn-dex" id="dexBtn">📖 내 한방단어 도감 보기</button>
     <p class="sub" id="dictBadge" style="font-size:12px;min-height:18px"></p>
-    <button class="btn-tuto" id="tutoBtn">❓ 게임 방법 · 한방단어가 뭐예요?</button>
+    <div class="tutorow">
+      <button class="btn-tuto" id="tutoBtn">❓ 게임 방법 · 한방단어가 뭐예요?</button>
+      <button class="btn-snd" id="sndBtn1" aria-label="소리 켜기/끄기">🔊</button>
+    </div>
     <div style="margin-top:6px"><!-- ▼ [출시설정 2/4] 광고 단위: 슬롯 ID 교체 -->
     <ins class="adsbygoogle" style="display:block;min-height:90px" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="0000000000" data-ad-format="auto" data-full-width-responsive="true"></ins>
     <script>(adsbygoogle=window.adsbygoogle||[]).push({});</script></div>
@@ -351,6 +358,7 @@ footer{text-align:center;color:var(--dim);font-size:11px;padding:10px 0 18px}
         <span class="hearts-mini" id="heartsMini">❤️❤️❤️</span>
         <div class="timerbar"><div class="fill" id="timerFill"></div></div>
         <span class="tsec"><span id="timerText">15.0</span>s</span>
+        <button class="btn-snd" id="sndBtn2" aria-label="소리 켜기/끄기">🔊</button>
       </div>
       <div class="mustline">
         <div class="mustchip" id="mustChip">
@@ -461,6 +469,52 @@ const store={
   get:(k,d)=>{try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}},
   set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
 };
+/* ===== 사운드 엔진 (Web Audio 실시간 합성 — 음원 파일 0KB) ===== */
+const SND=(()=>{
+  let ctx=null,on=store.get('kkut_sound',true);
+  function ac(){
+    if(!ctx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+      try{ctx=new AC()}catch(e){return null}}
+    if(ctx.state==='suspended')ctx.resume().catch(()=>{});
+    return ctx;
+  }
+  /* 음 하나: f→to 주파수 이동 + 감쇠 엔벨로프 */
+  function note(f,{to,type='sine',dur=.12,vol=.18,at=0}={}){
+    if(!on)return;const c=ac();if(!c)return;
+    const t0=c.currentTime+at,o=c.createOscillator(),g=c.createGain();
+    o.type=type;o.frequency.setValueAtTime(f,t0);
+    if(to)o.frequency.exponentialRampToValueAtTime(Math.max(1,to),t0+dur);
+    g.gain.setValueAtTime(.0001,t0);
+    g.gain.exponentialRampToValueAtTime(vol,t0+.006);
+    g.gain.exponentialRampToValueAtTime(.0001,t0+dur);
+    o.connect(g).connect(c.destination);o.start(t0);o.stop(t0+dur+.03);
+  }
+  const seq=(arr,o={})=>arr.forEach((f,i)=>note(f,{...o,at:(o.gap||.06)*i}));
+  const S={
+    unlock(){ac()},
+    isOn:()=>on,
+    toggle(){on=!on;store.set('kkut_sound',on);if(on){ac();S.tap()}return on},
+    tap(){note(660,{type:'square',dur:.035,vol:.05})},
+    start(){seq([523,659,784],{type:'triangle',dur:.1,vol:.12})},
+    dobal(){note(500,{to:640,type:'triangle',dur:.1,vol:.11})},
+    player(){note(520,{to:900,type:'sine',dur:.11,vol:.14})},
+    reject(){note(200,{to:110,type:'sawtooth',dur:.2,vol:.1})},
+    tick(){note(1500,{type:'square',dur:.025,vol:.05})},
+    heart(){note(420,{to:180,type:'triangle',dur:.32,vol:.14})},
+    hint(){seq([880,1174,1568],{type:'sine',dur:.09,vol:.09,gap:.05})},
+    chance(){seq([700,1000,1400],{type:'triangle',dur:.1,vol:.11,gap:.05})},
+    zap(){note(1400,{to:180,type:'sawtooth',dur:.28,vol:.18})},
+    dex(){seq([1046,1318,1568],{type:'sine',dur:.16,vol:.11,gap:.07})},
+    win(){seq([523,659,784,1046],{type:'triangle',dur:.16,vol:.16,gap:.09});
+          note(1046,{type:'sine',dur:.6,vol:.09,at:.38})},
+    lose(){seq([440,392,330,262],{type:'sine',dur:.22,vol:.12,gap:.11})}
+  };
+  return S;
+})();
+function renderSound(){
+  const t=SND.isOn()?'🔊':'🔇';
+  ['sndBtn1','sndBtn2'].forEach(id=>{const b=document.getElementById(id);if(b)b.textContent=t});
+}
 function todayStr(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`}
 function dateSeed(){return [...todayStr()].reduce((a,c)=>a*31+c.charCodeAt(0)>>>0,7)}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -639,10 +693,12 @@ function recordGame(won){
 
 /* ===== 타이머 ===== */
 function startTimer(){
-  stopTimer();timeLeft=TURN_TIME;
+  stopTimer();timeLeft=TURN_TIME;let lastSec=Math.ceil(TURN_TIME);
   timer=setInterval(()=>{
     timeLeft-=.1;
     if(timeLeft<=0){stopTimer();onTimeout();return}
+    const cs=Math.ceil(timeLeft);
+    if(cs!==lastSec){lastSec=cs;if(cs<=5)SND.tick()} /* 5초 이하 초읽기 */
     const r=timeLeft/TURN_TIME;
     fill.style.transform=`scaleX(${r})`;
     fill.classList.toggle('danger',r<.34);
@@ -698,6 +754,7 @@ function startGame(gameMode='free'){
   $('startScreen').style.display='none';
   $('gameScreen').style.display='flex';
   track('game_start',{mode});
+  SND.unlock();SND.start();
   addMsg('sys',mode==='daily'?'📅 오늘의 도전 — 모두 같은 문제! 한방단어로 승리하세요 ⚡':'⚡ 한방단어를 내면 즉시 승리! · ❤️×3 · 💡×2 · ⚡찬스×1');
   dobalTurn(true);
 }
@@ -719,6 +776,7 @@ function dobalTurn(isFirst=false,freshWord=false){
     }
     used.add(word);lastChar=word.at(-1);
     const streakNow=store.get('kkut_streak',0);
+    SND.dobal();
     addMsg('dobal',word,isFirst?pick(SAY.open):(freshWord?pick(SAY.heartLost):pick(rng()<.4?SAY.turn:SAY.praise)));
     setMust(lastChar,word);
     history.push({turn:turnCount+1,ch:lastChar}); /* 놓친 승리 분석용 */
@@ -730,7 +788,7 @@ function dobalTurn(isFirst=false,freshWord=false){
   },isFirst?600:1100+Math.random()*1000);
 }
 function onTimeout(){
-  accepting=false;hearts--;renderHearts();
+  accepting=false;SND.heart();hearts--;renderHearts();
   if(hearts<=0){endGame(false,'time');return}
   addMsg('sys','⏱ 시간 초과! ❤️ 하나 소모 · 도발이가 새 단어를 내요');
   dobalTurn(false,true);
@@ -738,7 +796,7 @@ function onTimeout(){
 function submitWord(){
   if(!accepting)return;
   const w=input.value.trim();if(!w)return;
-  const reject=msg=>{toast(msg);input.classList.add('shake');setTimeout(()=>input.classList.remove('shake'),380)};
+  const reject=msg=>{SND.reject();toast(msg);input.classList.add('shake');setTimeout(()=>input.classList.remove('shake'),380)};
   if(w.length<2)return reject('두 글자 이상이어야 해요!');
   if(![...w].every(isSyl))return reject('한글 단어만 낼 수 있어요!');
   if(!allowedStarts(lastChar).has(w[0]))return reject(`"${[...allowedStarts(lastChar)].join('/')}"(으)로 시작해야 해요!`);
@@ -751,6 +809,7 @@ function submitWord(){
     }
     stopTimer();accepting=false;hideHint();
     used.add(w);playerWordCount++;turnCount++;$('turnNum').textContent=turnCount;
+    SND.zap();
     addMsg('player',w,'⚡ 한방단어!!');
     setTimeout(()=>endGame(true,'killer',w),400);
     return;
@@ -759,6 +818,7 @@ function submitWord(){
   used.add(w);lastChar=w.at(-1);
   playerWordCount++;turnCount++;$('turnNum').textContent=turnCount;
   const say=w.length>=4?pick(SAY.longWord):null;
+  SND.player();
   addMsg('player',w,say);
   input.value='';
   dobalTurn();
@@ -770,7 +830,7 @@ function useHint(){
   for(const st of allowedStarts(lastChar))for(const w of (INDEX[st]||[]))
     if(!used.has(w)&&!KILLERS.has(w))c.push(w);
   if(!c.length){toast('이어갈 일반 단어가 없어요! ⚡ 한방 찬스를 써보세요!');return}
-  hints--;$('hintCount').textContent=hints;$('hintBtn').disabled=hints===0;
+  SND.hint();hints--;$('hintCount').textContent=hints;$('hintBtn').disabled=hints===0;
   c.sort((a,b)=>RANK.get(a)-RANK.get(b));
   const w=c[Math.floor(Math.random()*Math.min(8,c.length))];
   const h=$('hintWord');h.textContent='💡 '+w;h.classList.add('show');h.dataset.w=w;
@@ -780,7 +840,7 @@ function useKChance(){
   if(!accepting||kchance<=0)return;
   const c=killerCandidates(lastChar,used,mode==='free');
   if(!c.length){toast('지금은 낼 수 있는 한방단어가 없어요! 흐름을 바꿔보세요 🌀');return}
-  kchance--;$('kchanceCount').textContent=kchance;$('kchanceBtn').disabled=kchance===0;
+  SND.chance();kchance--;$('kchanceCount').textContent=kchance;$('kchanceBtn').disabled=kchance===0;
   const w=c[Math.floor(Math.random()*c.length)];
   const h=$('hintWord');h.textContent='⚡ '+w+' (한방!)';h.classList.add('show');h.dataset.w=w;
   toast('이 단어를 내면 승리! 도감에도 등록돼요 📖');
@@ -804,6 +864,7 @@ function endGame(playerWon,reason,killerUsed){
   kb.hidden=true;mb.hidden=true;
   track(playerWon?'game_win':'game_lose',{turns:turnCount,reason:reason||''});
   const rec=recordGame(playerWon);
+  if(playerWon)SND.win();else SND.lose();
   if(playerWon){
     title.textContent=reason==='blocked'?'🏳️ 봉쇄승!!':'⚡ 한방 승리!!';title.className='jua win';
     $('resultQuote').textContent='도발이: "'+pick(reason==='blocked'?SAY.blocked:SAY.killerLose)+'"';
@@ -813,7 +874,7 @@ function endGame(playerWon,reason,killerUsed){
       /* 도감 등록 + 재사용 제한 + 최단 기록 */
       const dex=store.get('kkut_dex',[]);
       const isNew=!dex.includes(killerUsed);
-      if(isNew){dex.push(killerUsed);store.set('kkut_dex',dex)}
+      if(isNew){dex.push(killerUsed);store.set('kkut_dex',dex);setTimeout(()=>SND.dex(),700)}
       const recent=store.get('kkut_recent_k',[]);
       recent.push(killerUsed);while(recent.length>RECENT_LIMIT)recent.shift();
       store.set('kkut_recent_k',recent);
@@ -900,7 +961,12 @@ $('tutoNext').addEventListener('click',()=>{
   store.set('kkut_tuto',true);
   if(tutoAfter){const m=tutoAfter;tutoAfter=null;startGame(m)}
 });
-$('tutoBtn').addEventListener('click',()=>openTuto(null));
+$('tutoBtn').addEventListener('click',()=>{SND.tap();openTuto(null)});
+['sndBtn1','sndBtn2'].forEach(id=>{
+  const b=document.getElementById(id);
+  if(b)b.addEventListener('click',e=>{e.stopPropagation();SND.toggle();renderSound()});
+});
+renderSound();
 
 /* ===== 이벤트 ===== */
 $('startBtn').addEventListener('click',()=>startGame('free'));
