@@ -2,7 +2,7 @@
   "name": "끝말잇기 마스터",
   "short_name": "끝말잇기",
   "description": "한방단어를 배우며 이기는 학습 끝말잇기",
-  "start_url": "/kkutmal/",
+  "start_url": "/",
   "display": "standalone",
   "background_color": "#EAF4FF",
   "theme_color": "#FF7A6E",

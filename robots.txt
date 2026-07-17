@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://dobal-e.com/sitemap.xml
+Sitemap: https://kkutmal.dobal-e.com/sitemap.xml
