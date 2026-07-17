@@ -54,9 +54,9 @@ button{font-family:inherit;cursor:pointer;border:none}
 a{color:inherit}
 :focus-visible{outline:3px solid var(--sky);outline-offset:2px}
 .app{position:fixed;top:0;bottom:0;left:0;right:0;max-width:520px;margin:0 auto;
-  display:flex;flex-direction:column;padding:0 16px;overflow-x:hidden}
+  display:flex;flex-direction:column;padding:0 16px;overflow:hidden}
 .app.playing footer{display:none} /* 게임 중엔 푸터를 숨겨 대화 영역 확보 */
-.screen{flex:1;display:flex;flex-direction:column}
+.screen{flex:1;min-height:0;display:flex;flex-direction:column} /* ★ min-height:0 — 없으면 대화가 쌓일수록 화면이 부풀어 입력창이 밀려남 */
 
 /* ============ 시작 화면 ============ */
 #startScreen{justify-content:center;gap:13px;padding:18px 0 24px;text-align:center;
