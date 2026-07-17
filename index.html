@@ -653,6 +653,7 @@ function startGame(gameMode='free'){
   log.innerHTML='';renderHearts();
   $('hintCount').textContent=hints;$('hintBtn').disabled=false;
   $('kchanceCount').textContent=kchance;$('kchanceBtn').disabled=false;hideHint();
+  input.value='';input.placeholder='단어를 입력하세요';
   $('turnNum').textContent='0';fill.style.transform='scaleX(1)';fill.classList.remove('danger');$('timerText').textContent=TURN_TIME.toFixed(1);
   $('startScreen').style.display='none';
   $('gameScreen').style.display='flex';
@@ -661,7 +662,8 @@ function startGame(gameMode='free'){
   dobalTurn(true);
 }
 function dobalTurn(isFirst=false,freshWord=false){
-  accepting=false;input.disabled=true;$('sendBtn').disabled=true;hideHint();
+  accepting=false;$('sendBtn').disabled=true;hideHint();
+  input.placeholder='도발이가 생각 중…'; /* disabled 대신 안내만 — iOS 포커스 유지 */
   const th=addMsg('dobal',null,`<span class="dots">음… 생각 중</span>`);th.classList.add('thinking');
   setTimeout(()=>{
     th.remove();
@@ -680,8 +682,11 @@ function dobalTurn(isFirst=false,freshWord=false){
     addMsg('dobal',word,isFirst?pick(SAY.open):(freshWord?pick(SAY.heartLost):pick(rng()<.4?SAY.turn:SAY.praise)));
     setMust(lastChar,word);
     history.push({turn:turnCount+1,ch:lastChar}); /* 놓친 승리 분석용 */
-    accepting=true;input.disabled=false;$('sendBtn').disabled=false;
-    input.value='';input.focus();startTimer();
+    accepting=true;$('sendBtn').disabled=false;
+    input.placeholder='단어를 입력하세요';
+    if(isFirst||freshWord)input.value='';           /* 미리 쳐둔 글자는 보존 */
+    if(document.activeElement!==input)input.focus(); /* 이미 포커스면 건드리지 않음 */
+    startTimer();
   },isFirst?600:1100+Math.random()*1000);
 }
 function onTimeout(){
@@ -754,7 +759,7 @@ function missedAnalysis(){
   return found;
 }
 function endGame(playerWon,reason,killerUsed){
-  stopTimer();accepting=false;input.disabled=true;$('sendBtn').disabled=true;
+  stopTimer();accepting=false;$('sendBtn').disabled=true;input.blur();
   const title=$('resultTitle'),sl=$('streakLine'),kb=$('killerBox'),mb=$('missedBox');
   kb.hidden=true;mb.hidden=true;
   track(playerWon?'game_win':'game_lose',{turns:turnCount,reason:reason||''});
@@ -936,11 +941,13 @@ $('dex').addEventListener('click',e=>{if(e.target.id==='dex')$('dex').classList.
   const vv=window.visualViewport;if(!vv)return;
   const app=document.querySelector('.app');
   function fit(){
+    /* 키보드가 밀어올린 만큼(offsetTop) 앱을 함께 내려 입력창이 잘리지 않게 */
     app.style.height=vv.height+'px';
-    window.scrollTo(0,0);
-    log.scrollTop=log.scrollHeight; /* 키보드가 올라와도 최신 단어 유지 */
+    app.style.transform=`translateY(${vv.offsetTop}px)`;
+    log.scrollTop=log.scrollHeight; /* 항상 최신 단어 유지 */
   }
   vv.addEventListener('resize',fit);
+  vv.addEventListener('scroll',fit);
   fit();
 })();
 input.addEventListener('focus',()=>setTimeout(()=>{log.scrollTop=log.scrollHeight},350));
