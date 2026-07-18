@@ -24,8 +24,6 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<!-- ▼ [출시설정 1/4] 카카오 공유 SDK — developers.kakao.com에서 JavaScript 키 발급 후 아래 KAKAO_KEY 교체 -->
-<script src="https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js" crossorigin="anonymous"></script>
 <!-- ▼ [출시설정 2/4] 구글 애드센스 — 승인 후 본인 게시자 ID(ca-pub-…)로 교체 -->
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script>
 <!-- ▼ [출시설정 3/4] GA4 — 측정 ID(G-…)로 교체 (선택사항) -->
@@ -413,7 +411,7 @@ footer{text-align:center;color:var(--dim);font-size:11px;padding:10px 0 18px}
       <div class="stat"><div class="n" id="statFast">-</div><div class="l">최단 승리</div></div>
     </div>
     <div class="resultbtns">
-      <button class="btn-share" id="shareBtn">💬 카톡으로 자랑하기</button>
+      <button class="btn-share" id="shareBtn">📤 자랑하기</button>
       <button class="btn-retry" id="retryBtn">한 판 더!</button>
       <button class="btn-home" id="homeBtn">처음으로</button>
     </div>
@@ -466,9 +464,6 @@ function allowedStarts(ch){
 }
 
 /* ===== 저장소 ===== */
-/* ▼ [출시설정 1/4] 카카오 JavaScript 키로 교체 */
-const KAKAO_KEY='50e85d67d7b9160037e5a1f9f771ebf7';
-try{if(window.Kakao&&!Kakao.isInitialized()&&KAKAO_KEY.indexOf('YOUR_')!==0)Kakao.init(KAKAO_KEY)}catch(e){}
 function track(ev,params){try{if(window.gtag)gtag('event',ev,params||{})}catch(e){}}
 const store={
   get:(k,d)=>{try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}},
@@ -920,22 +915,32 @@ function endGame(playerWon,reason,killerUsed){
 }
 
 /* ===== 공유 ===== */
+const SHARE_URL='https://kkutmal.dobal-e.com/';
 async function doShare(msg,okText){
+  const full=msg; /* 메시지에 링크가 이미 포함됨 */
   try{
-    if(window.Kakao&&Kakao.isInitialized()){ /* 카카오톡 공유 (실연동) */
-      Kakao.Share.sendDefault({objectType:'text',text:msg,link:{mobileWebUrl:'https://kkutmal.dobal-e.com/',webUrl:'https://kkutmal.dobal-e.com/'}});
-      track('share',{mode});return;
+    /* 모바일: OS 공유 시트(카톡·인스타·문자 등 선택 가능) */
+    if(navigator.share){
+      await navigator.share({title:'끝말잇기 마스터',text:msg,url:SHARE_URL});
+      track('share',{mode,how:'native'});return;
     }
-    if(navigator.share){await navigator.share({text:msg});track('share',{mode});return}
-    await navigator.clipboard.writeText(msg);toast(okText);track('share',{mode});
-  }catch(e){}
+  }catch(e){ if(e&&e.name==='AbortError')return; } /* 사용자가 취소하면 조용히 종료 */
+  /* PC 등 공유 시트 미지원: 클립보드에 복사 */
+  try{
+    await navigator.clipboard.writeText(full);
+    toast(okText);track('share',{mode,how:'clipboard'});
+  }catch(e){
+    /* 클립보드도 막힌 환경: 텍스트 선택 프롬프트 */
+    prompt('아래 내용을 복사해서 공유하세요 📤',full);
+    track('share',{mode,how:'prompt'});
+  }
 }
 async function shareDaily(d){
   const t=new Date(),md=`${t.getMonth()+1}/${t.getDate()}`;
   const msg=d.won
     ?`📅 ${md} 오늘의 도전 성공! ⚡ 한방단어 "${d.killer}"로 ${d.turns}턴 승리!\n🔥 연속 도전 ${d.dayStreak||1}일차\n오늘 문제는 모두 똑같아! 너도 도전 👉 https://kkutmal.dobal-e.com`
     :`📅 ${md} 오늘의 도전 실패… 😭 (${d.turns}턴)\n한방단어 아는 사람, 복수 부탁해!\n👉 https://kkutmal.dobal-e.com`;
-  doShare(msg,'오늘의 도전 결과 복사 완료! 💬');
+  doShare(msg,'📋 링크와 기록을 복사했어요! 붙여넣기 하세요');
 }
 async function shareResult(){
   const r=window._result||{};
@@ -944,7 +949,7 @@ async function shareResult(){
   const msg=r.playerWon
     ?`⚡ 한방단어 "${r.killer||'봉쇄'}"로 도발이 격파! (${r.turnCount}턴)\n📖 내 한방단어 도감: ${dex}개 수집\n너는 한방단어 몇 개 알아? 👉 https://kkutmal.dobal-e.com`
     :`😤 도발이한테 ${r.turnCount}턴 배우다 옴… 한방단어 공부하고 복수한다!\n👉 https://kkutmal.dobal-e.com`;
-  doShare(msg,'복사 완료! 카톡에 붙여넣으세요 💬');
+  doShare(msg,'📋 링크와 기록을 복사했어요! 붙여넣기 하세요');
 }
 
 /* ===== 튜토리얼 (3장) ===== */
